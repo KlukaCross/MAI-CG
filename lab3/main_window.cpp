@@ -4,8 +4,8 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QPainter>
-#include <QPainterPath>
 #include <QMouseEvent>
+#include <QtMath>
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
     surface = new Surface(this);
@@ -103,6 +103,8 @@ Surface::Surface(MainWindow *parent) : QWidget(parent) {
 
 void Surface::paintEvent(QPaintEvent *event) {
     QPainter painter(this);
+    parent->backEdges.clear();
+    parent->frontEdges.clear();
     painter.fillRect(this->rect(),Qt::white);
     QPen pen(Qt::black, 20);
     painter.setPen(pen);
@@ -133,131 +135,128 @@ void Surface::paintEvent(QPaintEvent *event) {
     painter.save();
     painter.translate(width()/2,height()/2);
 
-    QList<QPainterPath> backEdges;
-    QList<QPainterPath> frontEdges;
-    QList<std::pair<QVector3D, QVector3D>> normals;
-
     size_t baseVertexesSize = parent->figure->baseVertexes.size();
     size_t sideVertexesSize = parent->figure->sideVertexes.size();
     size_t vertexesStep = sideVertexesSize/baseVertexesSize;
 
-    {
-        QPainterPath path;
-        path.moveTo(QPointF{transformedVertexes[0].x(), transformedVertexes[0].y()});
-        for (size_t i = 1; i < baseVertexesSize; ++i) {
-            path.lineTo(QPointF{transformedVertexes[i].x(), transformedVertexes[i].y()});
-        }
-        path.closeSubpath();
-        const QVector3D v1 = (transformedVertexes[1] - transformedVertexes[0]).toVector3D();
-        const QVector3D v2 = (transformedVertexes[2] - transformedVertexes[1]).toVector3D();
-        const QVector3D normal = QVector3D::crossProduct(v1, v2);
-        if (normal.z() < 0)
-            frontEdges.push_back(path);
-        else
-            backEdges.push_back(path);
+    QList<QVector4D> baseVertexes;
+    for (size_t i = 0; i < baseVertexesSize; ++i) {
+        baseVertexes.push_back(transformedVertexes[i]);
     }
+    addBasePath(baseVertexes);
 
 
     if (transformedVertexes.size() >= 2*baseVertexesSize+vertexesStep) {
         for (size_t i = 0; i < baseVertexesSize-1; ++i) {
-            QPainterPath path;
-            path.moveTo(QPointF{transformedVertexes[i].x(), transformedVertexes[i].y()});
-            path.lineTo(QPointF{transformedVertexes[i+1].x(), transformedVertexes[i+1].y()});
-            path.lineTo(QPointF{transformedVertexes[baseVertexesSize+(i+1)*vertexesStep].x(), transformedVertexes[baseVertexesSize+(i+1)*vertexesStep].y()});
-            path.lineTo(QPointF{transformedVertexes[baseVertexesSize+i*vertexesStep].x(), transformedVertexes[baseVertexesSize+i*vertexesStep].y()});
-            path.closeSubpath();
-            const QVector3D v1 = (transformedVertexes[i+1] - transformedVertexes[i]).toVector3D();
-            const QVector3D v2 = (transformedVertexes[baseVertexesSize+(i+1)*vertexesStep] - transformedVertexes[i+1]).toVector3D();
-            const QVector3D normal = QVector3D::crossProduct(v1, v2);
-            normals.emplace_back(transformedVertexes[i].toVector3D(), normal);
-            if (normal.z() > 0)
-                frontEdges.push_back(path);
-            else
-                backEdges.push_back(path);
+            addSidePath(
+                    transformedVertexes[i],
+                    transformedVertexes[i+1],
+                    transformedVertexes[baseVertexesSize+(i+1)*vertexesStep],
+                    transformedVertexes[baseVertexesSize+i*vertexesStep]
+                    );
         }
-        QPainterPath path;
-        path.moveTo(QPointF{transformedVertexes[baseVertexesSize-1].x(), transformedVertexes[baseVertexesSize-1].y()});
-        path.lineTo(QPointF{transformedVertexes[0].x(), transformedVertexes[0].y()});
-        path.lineTo(QPointF{transformedVertexes[baseVertexesSize].x(), transformedVertexes[baseVertexesSize].y()});
-        path.lineTo(QPointF{transformedVertexes[baseVertexesSize+(baseVertexesSize-1)*vertexesStep].x(), transformedVertexes[baseVertexesSize+(baseVertexesSize-1)*vertexesStep].y()});
-        path.closeSubpath();
-        const QVector3D v1 = (transformedVertexes[0] - transformedVertexes[baseVertexesSize-1]).toVector3D();
-        const QVector3D v2 = (transformedVertexes[baseVertexesSize] - transformedVertexes[0]).toVector3D();
-        const QVector3D normal = QVector3D::crossProduct(v1, v2);
-        if (normal.z() > 0)
-            frontEdges.push_back(path);
-        else
-            backEdges.push_back(path);
+        addSidePath(
+                transformedVertexes[baseVertexesSize-1],
+                transformedVertexes[0],
+                transformedVertexes[baseVertexesSize],
+                transformedVertexes[baseVertexesSize+(baseVertexesSize-1)*vertexesStep]
+                );
     }
 
     for (size_t i = baseVertexesSize; i < transformedVertexes.size()-vertexesStep-1; ++i) {
         QPainterPath path;
         if ((i-baseVertexesSize+1) % vertexesStep == 0)
             continue;
-        path.moveTo(QPointF{transformedVertexes[i].x(), transformedVertexes[i].y()});
-        path.lineTo(QPointF{transformedVertexes[i+vertexesStep].x(), transformedVertexes[i+vertexesStep].y()});
-        path.lineTo(QPointF{transformedVertexes[i+vertexesStep+1].x(), transformedVertexes[i+vertexesStep+1].y()});
-        path.lineTo(QPointF{transformedVertexes[i+1].x(), transformedVertexes[i+1].y()});
-        path.closeSubpath();
-        const QVector3D v1 = (transformedVertexes[i+vertexesStep] - transformedVertexes[i]).toVector3D();
-        const QVector3D v2 = (transformedVertexes[i+vertexesStep+1] - transformedVertexes[i+vertexesStep]).toVector3D();
-        const QVector3D normal = QVector3D::crossProduct(v1, v2);
-        if (normal.z() > 0)
-            frontEdges.push_back(path);
-        else
-            backEdges.push_back(path);
+        addSidePath(
+                transformedVertexes[i],
+                transformedVertexes[i+vertexesStep],
+                transformedVertexes[i+vertexesStep+1],
+                transformedVertexes[i+1]
+                );
     }
     for (size_t i = 0; i < vertexesStep-1; ++i) {
-        QPainterPath path;
-        path.moveTo(QPointF{transformedVertexes[transformedVertexes.size()-vertexesStep-1+i].x(), transformedVertexes[transformedVertexes.size()-vertexesStep-1+i].y()});
-        path.lineTo(QPointF{transformedVertexes[baseVertexesSize+i].x(), transformedVertexes[baseVertexesSize+i].y()});
-        path.lineTo(QPointF{transformedVertexes[baseVertexesSize+i+1].x(), transformedVertexes[baseVertexesSize+i+1].y()});
-        path.lineTo(QPointF{transformedVertexes[transformedVertexes.size()-vertexesStep+i].x(), transformedVertexes[transformedVertexes.size()-vertexesStep+i].y()});
-        path.closeSubpath();
-        const QVector3D v1 = (transformedVertexes[baseVertexesSize+i] - transformedVertexes[transformedVertexes.size()-vertexesStep-1+i]).toVector3D();
-        const QVector3D v2 = (transformedVertexes[baseVertexesSize+i+1] - transformedVertexes[baseVertexesSize+i]).toVector3D();
-        const QVector3D normal = QVector3D::crossProduct(v1, v2);
-        if (normal.z() > 0)
-            frontEdges.push_back(path);
-        else
-            backEdges.push_back(path);
+        addSidePath(
+                transformedVertexes[transformedVertexes.size()-vertexesStep-1+i],
+                transformedVertexes[baseVertexesSize+i],
+                transformedVertexes[baseVertexesSize+i+1],
+                transformedVertexes[transformedVertexes.size()-vertexesStep+i]
+                );
     }
 
     for (size_t i = 0; i < baseVertexesSize-1; ++i) {
-        QPainterPath path;
-        path.moveTo(QPointF{transformedVertexes[baseVertexesSize+vertexesStep*(i+1)-1].x(), transformedVertexes[baseVertexesSize+vertexesStep*(i+1)-1].y()});
-        path.lineTo(QPointF{transformedVertexes[baseVertexesSize+vertexesStep*(i+2)-1].x(), transformedVertexes[baseVertexesSize+vertexesStep*(i+2)-1].y()});
-        path.lineTo(QPointF{transformedVertexes[transformedVertexes.size()-1].x(), transformedVertexes[transformedVertexes.size()-1].y()});
-        path.closeSubpath();
-        const QVector3D v1 = (transformedVertexes[baseVertexesSize+vertexesStep*(i+2)-1] - transformedVertexes[baseVertexesSize+vertexesStep*(i+1)-1]).toVector3D();
-        const QVector3D v2 = (transformedVertexes[transformedVertexes.size()-1] - transformedVertexes[baseVertexesSize+vertexesStep*(i+2)-1]).toVector3D();
-        const QVector3D normal = QVector3D::crossProduct(v1, v2);
-        if (normal.z() > 0)
-            frontEdges.push_back(path);
-        else
-            backEdges.push_back(path);
+        addTopPath(
+                transformedVertexes[baseVertexesSize+vertexesStep*(i+1)-1],
+                transformedVertexes[baseVertexesSize+vertexesStep*(i+2)-1],
+                transformedVertexes[transformedVertexes.size()-1]
+                );
     }
-    {
-        QPainterPath path;
-        path.clear();
-        path.moveTo(QPointF{transformedVertexes[transformedVertexes.size()-2].x(), transformedVertexes[transformedVertexes.size()-2].y()});
-        path.lineTo(QPointF{transformedVertexes[baseVertexesSize+vertexesStep-1].x(), transformedVertexes[baseVertexesSize+vertexesStep-1].y()});
-        path.lineTo(QPointF{transformedVertexes[transformedVertexes.size()-1].x(), transformedVertexes[transformedVertexes.size()-1].y()});
-        path.closeSubpath();
-        const QVector3D v1 = (transformedVertexes[baseVertexesSize+vertexesStep-1] - transformedVertexes[transformedVertexes.size()-2]).toVector3D();
-        const QVector3D v2 = (transformedVertexes[transformedVertexes.size()-1] - transformedVertexes[baseVertexesSize+vertexesStep-1]).toVector3D();
-        const QVector3D normal = QVector3D::crossProduct(v1, v2);
-        if (normal.z() > 0)
-            frontEdges.push_back(path);
-        else
-            backEdges.push_back(path);
-    }
+    addTopPath(
+            transformedVertexes[transformedVertexes.size()-2],
+            transformedVertexes[baseVertexesSize+vertexesStep-1],
+            transformedVertexes[transformedVertexes.size()-1]
+            );
 
     painter.setRenderHint(QPainter::Antialiasing,true);
-    painter.setPen(QPen(Qt::black,2));
-    for(auto path: frontEdges) {
-        painter.fillPath(path, Qt::green);
-        painter.drawPath(path);
+    painter.setPen(QPen(Qt::black,1));
+    for(auto pair: parent->frontEdges) {
+        //painter.fillPath(path, Qt::green);
+        double k = pair.second;
+        painter.fillPath(pair.first, QColor{int(lightColor.red()*k), int(lightColor.green()*k), int(lightColor.blue()*k)});
+        painter.drawPath(pair.first);
     }
     painter.restore();
+}
+
+void Surface::addSidePath(const QVector4D &v1, const QVector4D &v2, const QVector4D &v3, const QVector4D &v4) {
+    QPainterPath path;
+    QPointF p1 {v1.x(), v1.y()};
+    QPointF p2 {v2.x(), v2.y()};
+    QPointF p3 {v3.x(), v3.y()};
+    QPointF p4 {v4.x(), v4.y()};
+    path.moveTo(p1);
+    path.lineTo(p2);
+    path.lineTo(p3);
+    path.lineTo(p4);
+    path.closeSubpath();
+    const QVector3D vector1 {p2 - p1};
+    const QVector3D vector2 {p3 - p2};
+    const QVector3D normal = QVector3D::crossProduct(vector1, vector2).normalized();
+    QVector3D center = QVector3D{(p1+p2+p3+p4)/4}.normalized();
+    double k = abs(QVector3D::dotProduct((normal+center).normalized(), lightSource.normalized()));
+    (normal.z() > 0) ? parent->frontEdges.emplace_back(path, k) : parent->backEdges.emplace_back(path, k);
+}
+
+void Surface::addBasePath(const QList<QVector4D>& v) {
+    QPainterPath path;
+    path.moveTo(QPointF{v[0].x(), v[0].y()});
+    for (size_t i = 1; i < v.size(); ++i) {
+        QPointF p{v[i].x(), v[i].y()};
+        path.lineTo(p);
+    }
+    path.closeSubpath();
+    QPointF p1 {v[0].x(), v[0].y()};
+    QPointF p2 {v[1].x(), v[1].y()};
+    QPointF p3 {v[2].x(), v[2].y()};
+    const QVector3D vector1 {p2 - p1};
+    const QVector3D vector2 {p3 - p2};
+    const QVector3D normal = QVector3D::crossProduct(vector1, vector2).normalized();
+    double k = abs(QVector3D::dotProduct((normal*parent->rotateMatrix).normalized(), lightSource));
+    (normal.z() < 0)? parent->frontEdges.emplace_back(path, k) : parent->backEdges.emplace_back(path, k);
+}
+
+void Surface::addTopPath(const QVector4D &v1, const QVector4D &v2, const QVector4D &v3) {
+    QPainterPath path;
+    QPointF p1 {v1.x(), v1.y()};
+    QPointF p2 {v2.x(), v2.y()};
+    QPointF p3 {v3.x(), v3.y()};
+    path.moveTo(p1);
+    path.lineTo(p2);
+    path.lineTo(p3);
+    path.closeSubpath();
+    const QVector3D vector1 {p2 - p1};
+    const QVector3D vector2 {p3 - p2};
+    const QVector3D normal = QVector3D::crossProduct(vector1, vector2).normalized();
+    QVector3D center = QVector3D{(p1+p2+p3)/3}.normalized();
+    double k = abs(QVector3D::dotProduct((center+normal).normalized(), lightSource));
+    (normal.z() > 0) ? parent->frontEdges.emplace_back(path, k) : parent->backEdges.emplace_back(path, k);
 }

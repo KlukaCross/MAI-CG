@@ -3,10 +3,12 @@
 #include <QWidget>
 #include <QMatrix4x4>
 #include <QSpinBox>
+#include <QPainterPath>
+#include <QPainter>
 #include "figure.hpp"
 
 class MainWindow : public QWidget {
-    Q_OBJECT
+Q_OBJECT
 public:
     MainWindow(QWidget *parent=nullptr);
 
@@ -17,6 +19,8 @@ public:
     bool mousePressed = false;
     QMatrix4x4 rotateMatrix;
     size_t figureRadius, figureHeight, accuracy;
+    QList<QPair<QPainterPath, double>> backEdges;
+    QList<QPair<QPainterPath, double>> frontEdges;
 
     QSpinBox *radiusSpinBox, *heightSpinBox, *accuracySpinBox;
 
@@ -38,9 +42,14 @@ Q_OBJECT
 public:
     explicit Surface(MainWindow *parent = nullptr);
     MainWindow *parent;
+    const QColor lightColor {255, 255, 255};
+    const QVector3D lightSource = QVector3D{1, 1, -1}.normalized();
 
 private:
     void paintEvent(QPaintEvent *event) override;
+    void addSidePath(const QVector4D& v1, const QVector4D& v2, const QVector4D& v3, const QVector4D& v4);
+    void addBasePath(const QList<QVector4D>& v);
+    void addTopPath(const QVector4D& v1, const QVector4D& v2, const QVector4D& v3);
 };
 
 #endif //LAB3_MAIN_WINDOW_HPP
