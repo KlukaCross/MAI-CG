@@ -49,6 +49,9 @@ Figure::Figure(size_t baseRadius, size_t height, size_t baseVertexesNumber, size
 
     // fill side vertexes
     for (size_t i = 0; i < baseVertexesNumber; ++i) {
+        if (sideVertexesNumber == 1) { // then figure is prism
+            sideVertexes.emplace_back(baseVertexes[i].x(), baseVertexes[i].y(), height, 1);
+        }
         for (size_t j = 0; j < sideVertexesNumber-1; ++j) {
             double k = std::tan(double(j+1)*M_PI/double(2*(sideVertexesNumber+1)))*double(height)/double(baseRadius);
             double xy = std::sqrt(double(baseRadius*baseRadius) * double(height*height) / (double(baseRadius*baseRadius) * k*k + double(height*height)));
