@@ -18,3 +18,6 @@ target_link_libraries(lab4 PRIVATE
         Qt${QT_VERSION_MAJOR}::Widgets
         Qt${QT_VERSION_MAJOR}::OpenGL
         )
+
+configure_file(./vshader.glsl ./vshader.glsl COPYONLY)
+configure_file(./fshader.glsl ./fshader.glsl COPYONLY)

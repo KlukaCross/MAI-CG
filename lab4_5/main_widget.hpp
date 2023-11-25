@@ -31,14 +31,11 @@ protected:
     void paintGL() override;
 
     void initShaders();
-    void initTextures();
 
 private:
     QBasicTimer timer;
     QOpenGLShaderProgram program;
     GeometryEngine *geometries = nullptr;
-
-    QOpenGLTexture *texture = nullptr;
 
     QMatrix4x4 projectionMatrix;
 

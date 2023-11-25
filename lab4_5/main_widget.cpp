@@ -8,7 +8,6 @@ MainWidget::~MainWidget() {
     // Make sure the context is current when deleting the texture
     // and the buffers.
     makeCurrent();
-    delete texture;
     delete geometries;
     doneCurrent();
 }
@@ -58,7 +57,6 @@ void MainWidget::initializeGL() {
     glClearColor(0, 0, 0, 1);
 
     initShaders();
-    initTextures();
 
     geometries = new GeometryEngine;
 
@@ -68,11 +66,11 @@ void MainWidget::initializeGL() {
 
 void MainWidget::initShaders() {
     // Compile vertex shader
-    if (!program.addShaderFromSourceFile(QOpenGLShader::Vertex, ":/vshader.glsl"))
+    if (!program.addShaderFromSourceFile(QOpenGLShader::Vertex, "./vshader.glsl"))
         close();
 
     // Compile fragment shader
-    if (!program.addShaderFromSourceFile(QOpenGLShader::Fragment, ":/fshader.glsl"))
+    if (!program.addShaderFromSourceFile(QOpenGLShader::Fragment, "./fshader.glsl"))
         close();
 
     // Link shader pipeline
@@ -82,21 +80,6 @@ void MainWidget::initShaders() {
     // Bind shader pipeline for use
     if (!program.bind())
         close();
-}
-
-void MainWidget::initTextures() {
-    // Load cube.png image
-    texture = new QOpenGLTexture(QImage(":/cube.png").mirrored());
-
-    // Set nearest filtering mode for texture minification
-    texture->setMinificationFilter(QOpenGLTexture::Nearest);
-
-    // Set bilinear filtering mode for texture magnification
-    texture->setMagnificationFilter(QOpenGLTexture::Linear);
-
-    // Wrap texture coordinates by repeating
-    // f.ex. texture coordinate (1.1, 1.2) is same as (0.1, 0.2)
-    texture->setWrapMode(QOpenGLTexture::Repeat);
 }
 
 void MainWidget::resizeGL(int w, int h) {
@@ -123,7 +106,6 @@ void MainWidget::paintGL() {
     // Enable back face culling
     glEnable(GL_CULL_FACE);
 
-    texture->bind();
     program.bind();
 
     // Calculate model view transformation
@@ -132,10 +114,9 @@ void MainWidget::paintGL() {
     matrix.rotate(rotation);
 
     // Set modelview-projection matrix
-    program.setUniformValue("mvp_matrix", projectionMatrix * matrix);
-
-    // Use texture unit 0 which contains cube.png
-    program.setUniformValue("texture", 0);
+    program.setUniformValue("model", projectionMatrix * matrix);
+    program.setUniformValue("view", projectionMatrix * matrix);
+    program.setUniformValue("projection", projectionMatrix);
 
     // Draw cube geometry
     geometries->drawFigureGeometry(&program);
