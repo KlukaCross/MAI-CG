@@ -1,7 +1,6 @@
 #include "geometry_engine.hpp"
 
 #include <QtMath>
-#include <QVector2D>
 #include <QVector3D>
 
 #define EPS 0.00000001
@@ -12,24 +11,32 @@ int sign(double a) {
 
 
 void
-GeometryEngine::fillSideVertexes(size_t height, size_t baseRadius, VertexData *baseVertexes, VertexData *sideVertexes,
-                                 size_t i) const {
+GeometryEngine::fillSideVertexes(size_t height, size_t baseRadius, const QVector<VertexData> &baseVertexes, QVector<VertexData> &sideVertexes,
+                                 size_t baseIndex, size_t sideIndex) const {
     for (size_t j = 0; j < sideVertexesNumber; ++j) {
         double k = std::tan(double(j)*M_PI/double(2*(sideVertexesNumber+1)))*double(height)/double(baseRadius);
         double xy = std::sqrt(double(baseRadius*baseRadius) * double(height*height) / (double(baseRadius*baseRadius) * k*k + double(height*height)));
         double z = std::abs(k) * xy;
         double x, y;
-        if (abs(baseVertexes[i].position.y()) < EPS) {
+        if (abs(baseVertexes[baseIndex].position.y()) < EPS) {
             y = 0;
             x = xy;
-        } else if (abs(baseVertexes[i].position.x()) < EPS) {
+        } else if (abs(baseVertexes[baseIndex].position.x()) < EPS) {
             y = xy;
             x = 0;
         } else {
-            y = std::sqrt(baseVertexes[i].position.y()*baseVertexes[i].position.y() * xy*xy / (baseVertexes[i].position.x()*baseVertexes[i].position.x() + baseVertexes[i].position.y()*baseVertexes[i].position.y()));
-            x = y * abs(baseVertexes[i].position.x() / baseVertexes[i].position.y());
+            y = std::sqrt(baseVertexes[baseIndex].position.y() * baseVertexes[baseIndex].position.y() * xy * xy / (baseVertexes[baseIndex].position.x() * baseVertexes[baseIndex].position.x() + baseVertexes[baseIndex].position.y() * baseVertexes[baseIndex].position.y()));
+            x = y * abs(baseVertexes[baseIndex].position.x() / baseVertexes[baseIndex].position.y());
         }
-        sideVertexes[i*baseVertexesNumber+j] = {QVector3D(sign(baseVertexes[i].position.x()) * x, sign(baseVertexes[i].position.y()) * y, z)};
+        QVector3D v = QVector3D(sign(baseVertexes[baseIndex].position.x()) * x, sign(baseVertexes[baseIndex].position.y()) * y, z);
+        if (j == 0)
+            sideVertexes[sideIndex * 2*(sideVertexesNumber-1)].position = v;
+        else if (j == sideVertexesNumber - 1)
+            sideVertexes[sideIndex * 2*(sideVertexesNumber-1) + 2*j - 1].position = v;
+        else {
+            sideVertexes[sideIndex * 2*(sideVertexesNumber-1) + 2*j - 1].position = v;
+            sideVertexes[sideIndex * 2*(sideVertexesNumber-1) + 2*j].position = v;
+        }
     }
 }
 
@@ -39,23 +46,31 @@ GeometryEngine::GeometryEngine() : baseIndexesBuf(QOpenGLBuffer::IndexBuffer), s
     baseVertexesBuf.create();
     sideVertexesBuf.create();
     topVertexesBuf.create();
+
     baseIndexesBuf.create();
     sideIndexesBuf.create();
     topIndexesBuf.create();
 
-    initFigureGeometry(1, 1, 10, 10);
+    baseVAO.create();
+    sideVAO.create();
+    topVAO.create();
 }
 
 GeometryEngine::~GeometryEngine() {
     baseVertexesBuf.destroy();
     sideVertexesBuf.destroy();
     topVertexesBuf.destroy();
+
     baseIndexesBuf.destroy();
     sideIndexesBuf.destroy();
     topIndexesBuf.destroy();
+
+    baseVAO.destroy();
+    sideVAO.destroy();
+    topVAO.destroy();
 }
 
-void GeometryEngine::initFigureGeometry(size_t baseRadius, size_t height, size_t baseVertexesNumber, size_t sideVertexesNumber) {
+void GeometryEngine::initFigureGeometry(QOpenGLShaderProgram *program, size_t baseRadius, size_t height, size_t baseVertexesNumber, size_t sideVertexesNumber) {
     /*   BASE:
      *   _______
      *  /       \
@@ -82,17 +97,20 @@ void GeometryEngine::initFigureGeometry(size_t baseRadius, size_t height, size_t
     this->baseVertexesNumber = baseVertexesNumber;
     this->sideVertexesNumber = sideVertexesNumber;
 
-    VertexData baseVertexes[baseVertexesNumber];
-    GLushort baseIndexes[baseVertexesNumber];
+    baseSize = baseVertexesNumber;
+    QVector<VertexData> baseVertexes(baseSize);
+    QVector<GLushort> baseIndexes(baseSize);
 
-    VertexData sideVertexes[2*baseVertexesNumber*sideVertexesNumber];
-    GLushort sideIndexes[2*baseVertexesNumber*sideVertexesNumber];
+    sideSize = 4*baseVertexesNumber*(sideVertexesNumber-1);
+    QVector<VertexData> sideVertexes(sideSize);
+    QVector<GLushort> sideIndexes(sideSize);
 
-    VertexData topVertexes[3*baseVertexesNumber];
-    GLushort topIndexes[3*baseVertexesNumber];
+    topSize = 3*baseVertexesNumber;
+    QVector<VertexData> topVertexes(topSize);
+    QVector<GLushort> topIndexes(topSize);
 
     // fill base vertexes
-    QVector3D baseNormal{0, 0, 1};
+    QVector3D baseNormal{0, 0, -1};
     for (size_t i = 0; i < baseVertexesNumber; ++i) {
         double angle = 2*M_PI*double(i)/double(baseVertexesNumber);
         double k = qTan(angle);
@@ -107,92 +125,96 @@ void GeometryEngine::initFigureGeometry(size_t baseRadius, size_t height, size_t
             y = -y;
         }
         baseVertexes[i] = {QVector3D(x, y, 0), baseNormal};
-        baseIndexes[i] = i;
+        baseIndexes[i] = baseVertexesNumber-i-1;
     }
 
     // fill side vertexes, normals and indexes
     size_t indexesCounter = 0;
     for (size_t i = 0; i < baseVertexesNumber; ++i) {
-        fillSideVertexes(height, baseRadius, baseVertexes, sideVertexes, i);
+        fillSideVertexes(height, baseRadius, baseVertexes, sideVertexes, i, 2*i);
         if (i < baseVertexesNumber - 1)
-            fillSideVertexes(height, baseRadius, baseVertexes, sideVertexes, i + 1);
+            fillSideVertexes(height, baseRadius, baseVertexes, sideVertexes, i + 1, 2*i + 1);
         else
-            fillSideVertexes(height, baseRadius, baseVertexes, sideVertexes, 0);
-        // fill normals
+            fillSideVertexes(height, baseRadius, baseVertexes, sideVertexes, 0, 2*i + 1);
         for (size_t j = 0; j < sideVertexesNumber-1; ++j) {
-            QVector3D v1 = sideVertexes[2*i*sideVertexesNumber+1].position - sideVertexes[2*i*sideVertexesNumber].position;
-            QVector3D v2 = sideVertexes[(2*i+1)*sideVertexesNumber].position - sideVertexes[2*i*sideVertexesNumber].position;
+            QVector<size_t> tempIndexes = {4*i*(sideVertexesNumber-1)+2*j, 4*i*(sideVertexesNumber-1)+2*j+1, 2*(2*i+1)*(sideVertexesNumber-1)+2*j+1, 2*(2*i+1)*(sideVertexesNumber-1)+2*j};
+            QVector3D v1 = sideVertexes[tempIndexes[3]].position - sideVertexes[tempIndexes[0]].position;
+            QVector3D v2 = sideVertexes[tempIndexes[2]].position - sideVertexes[tempIndexes[3]].position;
             const QVector3D normal = QVector3D::crossProduct(v1, v2).normalized();
-            sideVertexes[2*i*sideVertexesNumber].normal = normal;
-            sideVertexes[2*i*sideVertexesNumber+1].normal = normal;
-            sideVertexes[(2*i+1)*sideVertexesNumber].normal = normal;
-            sideVertexes[(2*i+1)*sideVertexesNumber+1].normal = normal;
+            for (auto ind: tempIndexes) {
+                sideVertexes[ind].normal = normal;
+                sideIndexes[indexesCounter++] = ind;
+            }
         }
-        // fill indexes
-        sideIndexes[indexesCounter] = 2*i*sideVertexesNumber;
-        sideIndexes[indexesCounter+1] = (2*i+1)*sideVertexesNumber;
-        sideIndexes[indexesCounter+2] = (2*i+1)*sideVertexesNumber+1;
-        sideIndexes[indexesCounter+3] = 2*i*sideVertexesNumber+1;
-        indexesCounter += 4;
     }
 
     indexesCounter = 0;
     // fill top vertexes
     for (size_t i = 0; i < baseVertexesNumber; ++i) {
-        topVertexes[3*i] = sideVertexes[(2*i+1)+sideVertexesNumber-1];
-        topVertexes[3*i+1] = {QVector3D(0, 0, height)};
-        topVertexes[3*i+2] = sideVertexes[(2*i+2)+sideVertexesNumber-1];
-        QVector3D v1 = topVertexes[3*i+2].position - topVertexes[3*i].position;
-        QVector3D v2 = topVertexes[3*i+1].position - topVertexes[3*i+2].position;
+        QVector<size_t> tempIndexes = {3*i, 3*i+1, 3*i+2};
+        topVertexes[tempIndexes[0]] = sideVertexes[2*(2*i+2)*(sideVertexesNumber-1)-1];
+        topVertexes[tempIndexes[1]] = sideVertexes[2*(2*i+1)*(sideVertexesNumber-1)-1];
+        topVertexes[tempIndexes[2]] = {QVector3D(0, 0, height)};
+        QVector3D v1 = topVertexes[tempIndexes[0]].position - topVertexes[tempIndexes[1]].position;
+        QVector3D v2 = topVertexes[tempIndexes[2]].position - topVertexes[tempIndexes[0]].position;
         const QVector3D normal = QVector3D::crossProduct(v1, v2).normalized();
-        topVertexes[3*i].normal = normal;
-        topVertexes[3*i+1].normal = normal;
-        topVertexes[3*i+2].normal = normal;
+        for (auto ind: tempIndexes) {
+            topVertexes[ind].normal = normal;
+            topIndexes[indexesCounter++] = ind;
+        }
     }
 
+    int positionLocation = program->attributeLocation("position");
+    int normalLocation = program->attributeLocation("normal");
+    // bind baseVAO
+    baseVAO.bind();
     baseVertexesBuf.bind();
-    baseVertexesBuf.allocate(baseVertexes, baseVertexesNumber * sizeof(VertexData));
-
-    sideVertexesBuf.bind();
-    sideVertexesBuf.allocate(sideVertexes, 2*baseVertexesNumber*sideVertexesNumber * sizeof(VertexData));
-
-    topVertexesBuf.bind();
-    topVertexesBuf.allocate(topVertexes, 3*baseVertexesNumber * sizeof(VertexData));
-
+    baseVertexesBuf.allocate(baseVertexes.data(), baseSize * sizeof(VertexData));
     baseIndexesBuf.bind();
-    baseIndexesBuf.allocate(baseIndexes, baseVertexesNumber * sizeof(GLushort));
+    baseIndexesBuf.allocate(baseIndexes.data(), baseSize * sizeof(GLushort));
+    program->setAttributeBuffer(positionLocation, GL_FLOAT, 0, 3, sizeof(VertexData));
+    program->enableAttributeArray(positionLocation);
+    program->setAttributeBuffer(normalLocation, GL_FLOAT, sizeof(QVector3D), 3, sizeof(VertexData));
+    program->enableAttributeArray(normalLocation);
+    baseVAO.release();
 
+    // bind sideVAO
+    sideVAO.bind();
+    sideVertexesBuf.bind();
+    sideVertexesBuf.allocate(sideVertexes.data(), sideSize * sizeof(VertexData));
     sideIndexesBuf.bind();
-    sideIndexesBuf.allocate(sideIndexes, 2*baseVertexesNumber*sideVertexesNumber * sizeof(GLushort));
+    sideIndexesBuf.allocate(sideIndexes.data(), sideSize * sizeof(GLushort));
+    program->setAttributeBuffer(positionLocation, GL_FLOAT, 0, 3, sizeof(VertexData));
+    program->enableAttributeArray(positionLocation);
+    program->setAttributeBuffer(normalLocation, GL_FLOAT, sizeof(QVector3D), 3, sizeof(VertexData));
+    program->enableAttributeArray(normalLocation);
+    sideVAO.release();
 
+    // bind topVAO
+    topVAO.bind();
+    topVertexesBuf.bind();
+    topVertexesBuf.allocate(topVertexes.data(), topSize * sizeof(VertexData));
     topIndexesBuf.bind();
-    topIndexesBuf.allocate(topIndexes, 3*baseVertexesNumber * sizeof(GLushort));
+    topIndexesBuf.allocate(topIndexes.data(), topSize * sizeof(GLushort));
+    program->setAttributeBuffer(positionLocation, GL_FLOAT, 0, 3, sizeof(VertexData));
+    program->enableAttributeArray(positionLocation);
+    program->setAttributeBuffer(normalLocation, GL_FLOAT, sizeof(QVector3D), 3, sizeof(VertexData));
+    program->enableAttributeArray(normalLocation);
+    topVAO.release();
 }
 
-void GeometryEngine::drawFigureGeometry(QOpenGLShaderProgram *program)
+void GeometryEngine::drawFigureGeometry()
 {
-    // Tell OpenGL which VBOs to use
-    baseVertexesBuf.bind();
-    //sideVertexesBuf.bind();
-    //topVertexesBuf.bind();
+    baseVAO.bind();
+    glDrawElements(GL_POLYGON, baseSize, GL_UNSIGNED_SHORT, nullptr);
+    baseVAO.release();
 
-    baseIndexesBuf.bind();
-    //sideIndexesBuf.bind();
-    //topIndexesBuf.bind();
+    sideVAO.bind();
+    glDrawElements(GL_QUADS, sideSize, GL_UNSIGNED_SHORT, nullptr);
+    sideVAO.release();
 
-    quintptr offset = 0;
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
-
-    int vertexLocation = program->attributeLocation("position");
-    program->enableAttributeArray(vertexLocation);
-    program->setAttributeBuffer(vertexLocation, GL_FLOAT, offset, 3, sizeof(VertexData));
-
-    offset += sizeof(QVector3D);
-
-    //size_t *offset = 0;
-    glDrawElements(GL_POLYGON, baseVertexesNumber, GL_UNSIGNED_SHORT, nullptr);
-    //glDrawElements(GL_QUADS, 2*baseVertexesNumber*sideVertexesNumber, GL_UNSIGNED_SHORT, offset);
-    //glDrawElements(GL_TRIANGLES, 3*baseVertexesNumber, GL_UNSIGNED_SHORT, offset);
+    topVAO.bind();
+    glDrawElements(GL_TRIANGLES, topSize, GL_UNSIGNED_SHORT, nullptr);
+    topVAO.release();
 }
 

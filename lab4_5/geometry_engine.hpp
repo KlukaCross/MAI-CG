@@ -4,6 +4,7 @@
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLBuffer>
+#include <QOpenGLVertexArrayObject>
 
 
 struct VertexData {
@@ -16,16 +17,18 @@ public:
     GeometryEngine();
     virtual ~GeometryEngine();
 
-    void drawFigureGeometry(QOpenGLShaderProgram *program);
+    void drawFigureGeometry();
+    void initFigureGeometry(QOpenGLShaderProgram *program, size_t baseRadius, size_t height, size_t baseVertexesNumber, size_t sideVertexesNumber);
 
 private:
-    void initFigureGeometry(size_t baseRadius, size_t height, size_t baseVertexesNumber, size_t sideVertexesNumber);
-    void fillSideVertexes(size_t height, size_t baseRadius, VertexData *baseVertexes, VertexData *sideVertexes, size_t i) const;
+    void fillSideVertexes(size_t height, size_t baseRadius, const QVector<VertexData> &baseVertexes, QVector<VertexData> &sideVertexes, size_t baseIndex, size_t sideIndex) const;
 
     size_t baseVertexesNumber, sideVertexesNumber;
+    size_t baseSize, sideSize, topSize;
 
     QOpenGLBuffer baseVertexesBuf, sideVertexesBuf, topVertexesBuf;
     QOpenGLBuffer baseIndexesBuf, sideIndexesBuf, topIndexesBuf;
+    QOpenGLVertexArrayObject baseVAO, sideVAO, topVAO;
 };
 
 #endif // GEOMETRY_ENGINE_H

@@ -13,11 +13,18 @@ MainWidget::~MainWidget() {
 }
 
 void MainWidget::mousePressEvent(QMouseEvent *e) {
-    // Save mouse press position
-    mousePressPosition = QVector2D(e->pos());
+    if (e->button() == Qt::MouseButton::LeftButton) {
+        // Save mouse press position
+        mousePressPosition = QVector2D(e->pos());
+    } else if (e->button() == Qt::MouseButton::RightButton) {
+        // Stop rotation
+        angularSpeed = 0;
+    }
 }
 
 void MainWidget::mouseReleaseEvent(QMouseEvent *e) {
+    if (e->button() == Qt::MouseButton::RightButton)
+        return;
     // Mouse release position - mouse press position
     QVector2D diff = QVector2D(e->pos()) - mousePressPosition;
 
@@ -59,6 +66,7 @@ void MainWidget::initializeGL() {
     initShaders();
 
     geometries = new GeometryEngine;
+    geometries->initFigureGeometry(&program, 1, 1, 100, 100);
 
     // Use QBasicTimer because its faster than QTimer
     timer.start(12, this);
@@ -87,7 +95,7 @@ void MainWidget::resizeGL(int w, int h) {
     qreal aspect = qreal(w) / qreal(h ? h : 1);
 
     // Set near plane to 3.0, far plane to 7.0, field of view 45 degrees
-    const qreal zNear = 3.0, zFar = 7.0, fov = 45.0;
+    const qreal zNear = 2.0, zFar = 7.0, fov = 45.0;
 
     // Reset projection
     projectionMatrix.setToIdentity();
@@ -103,21 +111,26 @@ void MainWidget::paintGL() {
     // Enable depth buffer
     glEnable(GL_DEPTH_TEST);
 
-    // Enable back face culling
-    glEnable(GL_CULL_FACE);
-
     program.bind();
 
-    // Calculate model view transformation
-    QMatrix4x4 matrix;
-    matrix.translate(0.0, 0.0, -5.0);
-    matrix.rotate(rotation);
+    // Calculate modelMatrix viewMatrix transformation
+    QMatrix4x4 modelMatrix;
+    modelMatrix.translate(0.0, 0.0, -0.3);
+    QMatrix4x4 viewMatrix;
+    viewMatrix.translate(0.0, 0.0, -4.0);
+    viewMatrix.rotate(rotation);
 
     // Set modelview-projection matrix
-    program.setUniformValue("model", projectionMatrix * matrix);
-    program.setUniformValue("view", projectionMatrix * matrix);
+    program.setUniformValue("model", modelMatrix);
+    program.setUniformValue("view", viewMatrix);
     program.setUniformValue("projection", projectionMatrix);
 
+    // Set colors and positions
+    program.setUniformValue("objectColor", 0.5f, 0.5f, 0.5f);
+    program.setUniformValue("lightColor", 1.0f, 1.0f, 1.0f);
+    program.setUniformValue("lightPos", 0.0f, 0.0f, -1.0f);
+    program.setUniformValue("viewPos", 0.0f, 0.0f, -0.5f);
+
     // Draw cube geometry
-    geometries->drawFigureGeometry(&program);
+    geometries->drawFigureGeometry();
 }
