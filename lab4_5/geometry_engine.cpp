@@ -70,7 +70,7 @@ GeometryEngine::~GeometryEngine() {
     topVAO.destroy();
 }
 
-void GeometryEngine::initFigureGeometry(QOpenGLShaderProgram *program, size_t baseRadius, size_t height, size_t baseVertexesNumber, size_t sideVertexesNumber) {
+void GeometryEngine::initFigureGeometry(QOpenGLShaderProgram *program) {
     /*   BASE:
      *   _______
      *  /       \
@@ -94,20 +94,18 @@ void GeometryEngine::initFigureGeometry(QOpenGLShaderProgram *program, size_t ba
      *   . (0, 0, height)
      *   |\
      */
-    this->baseVertexesNumber = baseVertexesNumber;
-    this->sideVertexesNumber = sideVertexesNumber;
+    baseSize = preBaseSize;
+    sideSize = preSideSize;
+    topSize = preTopSize;
 
-    baseSize = baseVertexesNumber;
     QVector<VertexData> baseVertexes(baseSize);
-    QVector<GLushort> baseIndexes(baseSize);
+    QVector<GLuint> baseIndexes(baseSize);
 
-    sideSize = 4*baseVertexesNumber*(sideVertexesNumber-1);
     QVector<VertexData> sideVertexes(sideSize);
-    QVector<GLushort> sideIndexes(sideSize);
+    QVector<GLuint> sideIndexes(sideSize);
 
-    topSize = 3*baseVertexesNumber;
     QVector<VertexData> topVertexes(topSize);
-    QVector<GLushort> topIndexes(topSize);
+    QVector<GLuint> topIndexes(topSize);
 
     // fill base vertexes
     QVector3D baseNormal{0, 0, -1};
@@ -171,7 +169,7 @@ void GeometryEngine::initFigureGeometry(QOpenGLShaderProgram *program, size_t ba
     baseVertexesBuf.bind();
     baseVertexesBuf.allocate(baseVertexes.data(), baseSize * sizeof(VertexData));
     baseIndexesBuf.bind();
-    baseIndexesBuf.allocate(baseIndexes.data(), baseSize * sizeof(GLushort));
+    baseIndexesBuf.allocate(baseIndexes.data(), baseSize * sizeof(GLuint));
     program->setAttributeBuffer(positionLocation, GL_FLOAT, 0, 3, sizeof(VertexData));
     program->enableAttributeArray(positionLocation);
     program->setAttributeBuffer(normalLocation, GL_FLOAT, sizeof(QVector3D), 3, sizeof(VertexData));
@@ -183,7 +181,7 @@ void GeometryEngine::initFigureGeometry(QOpenGLShaderProgram *program, size_t ba
     sideVertexesBuf.bind();
     sideVertexesBuf.allocate(sideVertexes.data(), sideSize * sizeof(VertexData));
     sideIndexesBuf.bind();
-    sideIndexesBuf.allocate(sideIndexes.data(), sideSize * sizeof(GLushort));
+    sideIndexesBuf.allocate(sideIndexes.data(), sideSize * sizeof(GLuint));
     program->setAttributeBuffer(positionLocation, GL_FLOAT, 0, 3, sizeof(VertexData));
     program->enableAttributeArray(positionLocation);
     program->setAttributeBuffer(normalLocation, GL_FLOAT, sizeof(QVector3D), 3, sizeof(VertexData));
@@ -195,7 +193,7 @@ void GeometryEngine::initFigureGeometry(QOpenGLShaderProgram *program, size_t ba
     topVertexesBuf.bind();
     topVertexesBuf.allocate(topVertexes.data(), topSize * sizeof(VertexData));
     topIndexesBuf.bind();
-    topIndexesBuf.allocate(topIndexes.data(), topSize * sizeof(GLushort));
+    topIndexesBuf.allocate(topIndexes.data(), topSize * sizeof(GLuint));
     program->setAttributeBuffer(positionLocation, GL_FLOAT, 0, 3, sizeof(VertexData));
     program->enableAttributeArray(positionLocation);
     program->setAttributeBuffer(normalLocation, GL_FLOAT, sizeof(QVector3D), 3, sizeof(VertexData));
@@ -206,15 +204,27 @@ void GeometryEngine::initFigureGeometry(QOpenGLShaderProgram *program, size_t ba
 void GeometryEngine::drawFigureGeometry()
 {
     baseVAO.bind();
-    glDrawElements(GL_POLYGON, baseSize, GL_UNSIGNED_SHORT, nullptr);
+    glDrawElements(GL_POLYGON, baseSize, GL_UNSIGNED_INT, nullptr);
     baseVAO.release();
 
     sideVAO.bind();
-    glDrawElements(GL_QUADS, sideSize, GL_UNSIGNED_SHORT, nullptr);
+    glDrawElements(GL_QUADS, sideSize, GL_UNSIGNED_INT, nullptr);
     sideVAO.release();
 
     topVAO.bind();
-    glDrawElements(GL_TRIANGLES, topSize, GL_UNSIGNED_SHORT, nullptr);
+    glDrawElements(GL_TRIANGLES, topSize, GL_UNSIGNED_INT, nullptr);
     topVAO.release();
+}
+
+void GeometryEngine::setVertexesNumber(size_t baseVertexesNumber, size_t sideVertexesNumber) {
+    this->baseVertexesNumber = baseVertexesNumber;
+    this->sideVertexesNumber = sideVertexesNumber;
+    preBaseSize = baseVertexesNumber;
+    preSideSize = 4*baseVertexesNumber*(sideVertexesNumber-1);
+    preTopSize = 3*baseVertexesNumber;
+}
+
+size_t GeometryEngine::calculateVertexesNumber() {
+    return preBaseSize + preSideSize + preTopSize;
 }
 

@@ -1,48 +1,28 @@
 #ifndef LAB4_MAINWIDGET_HPP
 #define LAB4_MAINWIDGET_HPP
 
-#include "geometry_engine.hpp"
+#include <QLabel>
+#include <QSlider>
+#include "opengl_widget.hpp"
 
-#include <QOpenGLWidget>
-#include <QOpenGLFunctions>
-#include <QMatrix4x4>
-#include <QQuaternion>
-#include <QVector2D>
-#include <QBasicTimer>
-#include <QOpenGLShaderProgram>
-#include <QOpenGLTexture>
 
-class GeometryEngine;
-
-class MainWidget : public QOpenGLWidget, protected QOpenGLFunctions {
+class MainWidget : public QWidget {
 Q_OBJECT
-
 public:
-    using QOpenGLWidget::QOpenGLWidget;
-    ~MainWidget();
-
-protected:
-    void mousePressEvent(QMouseEvent *e) override;
-    void mouseReleaseEvent(QMouseEvent *e) override;
-    void timerEvent(QTimerEvent *e) override;
-
-    void initializeGL() override;
-    void resizeGL(int w, int h) override;
-    void paintGL() override;
-
-    void initShaders();
+    explicit MainWidget(QWidget *parent=nullptr);
 
 private:
-    QBasicTimer timer;
-    QOpenGLShaderProgram program;
-    GeometryEngine *geometries = nullptr;
+    OpenglWidget *opengl_widget;
 
-    QMatrix4x4 projectionMatrix;
+    QLabel *accuracyValueLabel, *redColorValueLabel, *greenColorValueLabel, *blueColorValueLabel, *glossCoefficientValue;
 
-    QVector2D mousePressPosition;
-    QVector3D rotationAxis;
-    qreal angularSpeed = 0;
-    QQuaternion rotation;
+private slots:
+    void accuracyChanged();
+    void accuracyLabelChanged(int value);
+    void redColorChanged(int value);
+    void greenColorChanged(int value);
+    void blueColorChanged(int value);
+    void glossCoefficientChanged(int value);
 };
 
 #endif //LAB4_MAINWIDGET_HPP

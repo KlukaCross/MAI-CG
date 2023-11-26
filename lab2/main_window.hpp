@@ -1,5 +1,5 @@
-#ifndef LAB1_MAIN_WINDOW_HPP
-#define LAB1_MAIN_WINDOW_HPP
+#ifndef LAB2_MAIN_WINDOW_HPP
+#define LAB2_MAIN_WINDOW_HPP
 #include <QWidget>
 #include <QMatrix4x4>
 
@@ -24,4 +24,4 @@ private:
 };
 
 
-#endif //LAB1_MAIN_WINDOW_HPP
+#endif //LAB2_MAIN_WINDOW_HPP

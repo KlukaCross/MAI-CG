@@ -11,7 +11,7 @@ find_package(OpenGL REQUIRED)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Gui Widgets OpenGL)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets OpenGL)
 
-add_executable(lab4 main.cpp main_widget.hpp geometry_engine.hpp main_widget.cpp geometry_engine.cpp)
+add_executable(lab4 main.cpp main_widget.hpp geometry_engine.hpp opengl_widget.hpp main_widget.cpp geometry_engine.cpp opengl_widget.cpp)
 target_link_libraries(lab4 PRIVATE
         Qt${QT_VERSION_MAJOR}::Core
         Qt${QT_VERSION_MAJOR}::Gui

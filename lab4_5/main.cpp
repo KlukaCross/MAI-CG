@@ -15,9 +15,10 @@ int main(int argc, char *argv[]) {
     format.setDepthBufferSize(24);
     QSurfaceFormat::setDefaultFormat(format);
 
-    app.setApplicationName("lab4_5");
+    app.setApplicationName("lab4-5");
 #ifndef QT_NO_OPENGL
     MainWidget widget;
+    widget.setMinimumSize(400, 400);
     widget.show();
 #else
     QLabel note("OpenGL Support required");
