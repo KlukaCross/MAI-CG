@@ -222,7 +222,7 @@ void Surface::addSidePath(const QVector4D &v1, const QVector4D &v2, const QVecto
     const QVector3D vector2 {p3 - p2};
     const QVector3D normal = QVector3D::crossProduct(vector1, vector2).normalized();
     QVector3D center = QVector3D{(p1+p2+p3+p4)/4}.normalized();
-    double k = abs(QVector3D::dotProduct((normal+center).normalized(), lightSource.normalized()));
+    double k = fmax(-QVector3D::dotProduct((normal+center).normalized(), lightSource), 0);
     (normal.z() > 0) ? parent->frontEdges.emplace_back(path, k) : parent->backEdges.emplace_back(path, k);
 }
 
@@ -240,7 +240,7 @@ void Surface::addBasePath(const QList<QVector4D>& v) {
     const QVector3D vector1 {p2 - p1};
     const QVector3D vector2 {p3 - p2};
     const QVector3D normal = QVector3D::crossProduct(vector1, vector2).normalized();
-    double k = abs(QVector3D::dotProduct((normal*parent->rotateMatrix).normalized(), lightSource));
+    double k = fmax(-QVector3D::dotProduct((normal*parent->rotateMatrix).normalized(), lightSource), 0);
     (normal.z() < 0)? parent->frontEdges.emplace_back(path, k) : parent->backEdges.emplace_back(path, k);
 }
 
@@ -257,6 +257,6 @@ void Surface::addTopPath(const QVector4D &v1, const QVector4D &v2, const QVector
     const QVector3D vector2 {p3 - p2};
     const QVector3D normal = QVector3D::crossProduct(vector1, vector2).normalized();
     QVector3D center = QVector3D{(p1+p2+p3)/3}.normalized();
-    double k = abs(QVector3D::dotProduct((center+normal).normalized(), lightSource));
+    double k = fmax(-QVector3D::dotProduct((center+normal).normalized(), lightSource), 0);
     (normal.z() > 0) ? parent->frontEdges.emplace_back(path, k) : parent->backEdges.emplace_back(path, k);
 }
