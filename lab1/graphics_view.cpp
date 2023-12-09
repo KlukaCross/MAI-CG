@@ -82,7 +82,7 @@ void GraphicsView::draw_plot() {
     plot_items->addToGroup(scene->addLine(centerOfPlotX, indent, centerOfPlotX + arrowsSize, indent + arrowsSize, penAxes));
     plot_items->addToGroup(scene->addLine(centerOfPlotX, indent, centerOfPlotX - arrowsSize, indent + arrowsSize, penAxes));
     text = scene->addSimpleText(QString("Y"), textFont);
-    text->setPos(centerOfPlotX+arrowsSize, 0+arrowsSize);
+    text->setPos(centerOfPlotX+arrowsSize, arrowsSize);
     plot_items->addToGroup(text);
 
     // strokes and numbers

@@ -63,10 +63,10 @@ void MainWindow::paintEvent(QPaintEvent *event) {
     }
 
     painter.setRenderHint(QPainter::Antialiasing,true);
-    //painter.setPen(QPen(Qt::gray,1, Qt::DashLine));
-    //for(auto path: backEdges) {
-    //    painter.drawPath(path);
-    //}
+    painter.setPen(QPen(Qt::gray,1, Qt::DashLine));
+    for(auto path: backEdges) {
+        painter.drawPath(path);
+    }
     painter.setPen(QPen(Qt::black,4));
     for(auto path: frontEdges) {
         painter.drawPath(path);
