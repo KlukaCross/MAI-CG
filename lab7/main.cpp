@@ -3,8 +3,7 @@
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
-    MainWindow w(10, 10);
-    w.resize(300, 200);
+    MainWindow w;
     w.show();
     return QApplication::exec();
 }
