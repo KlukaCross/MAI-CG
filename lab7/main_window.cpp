@@ -3,8 +3,11 @@
 #include <QRandomGenerator>
 #include <QPainter>
 #include <QPainterPath>
+#include <QtMath>
+
 
 const size_t POINT_RADIUS = 4;
+const size_t CURVE_ITERATIONS = 2000;
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
     resize(300, 300);
@@ -43,38 +46,15 @@ void MainWindow::paintEvent(QPaintEvent *event) {
     painter.drawPath(BezierPath);
 }
 
-QPointF MainWindow::GetLineStart(QPointF* pt1, QPointF* pt2) const {
-    QPointF pt;
-    float fRat = 0.5f;
-    pt.setX((1.0f - fRat)*pt1->x() + fRat*pt2->x());
-    pt.setY((1.0f - fRat)*pt1->y() + fRat*pt2->y());
-    return pt;
-}
-
-QPointF MainWindow::GetLineEnd(QPointF* pt1, QPointF* pt2) const {
-    QPointF pt;
-    float fRat = 0.5f;
-    pt.setX(fRat*pt1->x() + (1.0f - fRat)*pt2->x());
-    pt.setY(fRat*pt1->y() + (1.0f - fRat)*pt2->y());
-    return pt;
-}
-
 QPainterPath MainWindow::GetPath() {
     QPainterPath path;
 
     path.moveTo(*points[0]);
-    QPointF pt1;
-    QPointF pt2;
-    for (size_t i = 0; i < points.size() - 1; i++) {
-        pt1 = GetLineStart(points[i], points[i+1]);
-
-        path.quadTo(*points[i], pt1);
-
-        pt2 = GetLineEnd(points[i], points[i+1]);
-        path.lineTo(pt2);
+    double step = 1./double(CURVE_ITERATIONS);
+    for (size_t i = 0; i < CURVE_ITERATIONS; ++i) {
+        path.lineTo(B(i*step));
     }
 
-    path.lineTo(*points[points.size()-1]);
     return path;
 }
 
@@ -101,4 +81,27 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event) {
     currentPoint->setX(pos.x());
     currentPoint->setY(pos.y());
     update();
+}
+
+QPointF MainWindow::B(double t) {
+    QPointF p(0, 0);
+    size_t n = points.size() - 1;
+    for (size_t i = 0; i <= n; ++i) {
+        p += BIteration(n, i, t);
+    }
+    return p;
+}
+
+QPointF MainWindow::BIteration(size_t n, size_t k, double t) {
+    size_t fact_n = 1;
+    for (size_t i = 2; i < n; ++i)
+        fact_n *= i;
+    size_t fact_k = 1;
+    for (size_t i = 2; i < k; ++i)
+        fact_k *= i;
+    size_t fact_n_k = 1;
+    for (size_t i = 2; i < n-k; ++i)
+        fact_n_k *= i;
+    double b = fact_n/(fact_k*fact_n_k)*qPow(t, k)*qPow(1-t, n-k);
+    return {b*points[k]->x(), b*points[k]->y()};
 }

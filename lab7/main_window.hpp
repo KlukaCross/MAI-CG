@@ -20,9 +20,8 @@ private:
     void mouseMoveEvent(QMouseEvent *event) override;
     void generatePoints(size_t count);
 
-    float GetDistance(QPointF* pt1, QPointF* pt2) const;
-    QPointF GetLineStart(QPointF* pt1, QPointF* pt2) const;
-    QPointF GetLineEnd(QPointF* pt1, QPointF* pt2) const;
+    QPointF B(double t);
+    QPointF BIteration(size_t n, size_t k, double t);
     QPainterPath GetPath();
 };
 
