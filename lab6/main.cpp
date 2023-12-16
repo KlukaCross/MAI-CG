@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     format.setDepthBufferSize(24);
     QSurfaceFormat::setDefaultFormat(format);
 
-    app.setApplicationName("lab4-5");
+    app.setApplicationName("lab6");
 #ifndef QT_NO_OPENGL
     MainWidget widget;
     widget.setMinimumSize(400, 400);
